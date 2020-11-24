@@ -1,0 +1,857 @@
+---
+title: "SIOP 2020 Careers Projects"
+author: "Kulas"
+date: 'Most recently updated `r format(Sys.time(), "%A %B %d %Y %X")`'
+bibliography: careers.bib
+output:
+  html_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(psych)
+library(descr)
+```
+
+# SIOP 2020 Lale extension
+
+Codebooks located at  
+
+1. [Current Population Survey (CPS) Datafile](https://www.bls.gov/tus/atuscpscodebk0313.pdf)  
+2. [Daily Activities Logged (Summary Datafile)](https://www.bls.gov/tus/lexiconnoex0318.pdf)
+
+5-year follow-up to [Lale](https://www.bls.gov/opub/mlr/2015/article/multiple-jobholding-over-the-past-two-decades.htm) findings (which go through 2013; @lale_multiple_2015)
+
+```{r data, echo=FALSE, cache=TRUE}
+
+atus <- read.csv("atuscps_0318.DAT")  ## For Number of Jobs variable - 7/16/19 with Alicia Starbucks St. Cloud
+summary <- read.csv("atussum_0318.DAT")  ## Daily activity file
+
+atus_self <- subset(atus, TULINENO==1)    ## onlly self respondents
+
+merged <- merge(atus_self, summary, by = "TUCASEID", all.x=TRUE, all.y=TRUE) 
+
+```
+
+```{r subset.recodes, echo=FALSE, warning=FALSE, message=FALSE}
+
+merged$caseid <- as.character(merged[,1])            ## Year isolated from the full id number
+merged$year_short <- substr(merged$caseid, 1, 4)
+merged$Year <- as.numeric(merged$year_short)            ## For line graphs
+
+## more useful:  how many hours per week do you usually work at your main job? (PEHRUSL1)
+##               how many hours per week do you usually work at your other job(s)? (PEHRUSL2)
+
+merged$PEHRUSL1[merged$PEHRUSL1 <= -1] <- NA             ## too many out-of-range values
+merged$PEHRUSL1[merged$PEHRUSL1 >= 90] <- NA
+merged$PEHRUSL2[merged$PEHRUSL2 <= -1] <- NA 
+merged$PEHRUSL2[merged$PEHRUSL2 >= 90] <- NA
+
+## Further Occupational recodes
+
+merged$PRMJOCC1[merged$PRMJOCC1 <= -1] <- NA 
+merged$PRMJOCC1 <- as.character(merged$PRMJOCC1)
+
+merged$PRMJOCC1[merged$PRMJOCC1 == "1"] <- "Management, business, finance"
+merged$PRMJOCC1[merged$PRMJOCC1 == "2"] <- "Professional"
+merged$PRMJOCC1[merged$PRMJOCC1 == "3"] <- "Service"
+merged$PRMJOCC1[merged$PRMJOCC1 == "4"] <- "Sales"
+merged$PRMJOCC1[merged$PRMJOCC1 == "5"] <- "Office and admin"
+merged$PRMJOCC1[merged$PRMJOCC1 == "6"] <- "Farming & forestry"
+merged$PRMJOCC1[merged$PRMJOCC1 == "7"] <- "Construction"
+merged$PRMJOCC1[merged$PRMJOCC1 == "8"] <- "Installation, maintenance"
+merged$PRMJOCC1[merged$PRMJOCC1 == "9"] <- "Production"
+merged$PRMJOCC1[merged$PRMJOCC1 == "10"] <- "Transportation"
+merged$PRMJOCC1[merged$PRMJOCC1 == "11"] <- "Armed Forces"
+
+merged$PRMJOCC2[merged$PRMJOCC2 <= -1] <- NA 
+merged$PRMJOCC2 <- as.character(merged$PRMJOCC2)
+
+merged$PRMJOCC2[merged$PRMJOCC2 == "1"] <- "Management, business, finance"
+merged$PRMJOCC2[merged$PRMJOCC2 == "2"] <- "Professional"
+merged$PRMJOCC2[merged$PRMJOCC2 == "3"] <- "Service"
+merged$PRMJOCC2[merged$PRMJOCC2 == "4"] <- "Sales"
+merged$PRMJOCC2[merged$PRMJOCC2 == "5"] <- "Office and admin"
+merged$PRMJOCC2[merged$PRMJOCC2 == "6"] <- "Farming & forestry"
+merged$PRMJOCC2[merged$PRMJOCC2 == "7"] <- "Construction"
+merged$PRMJOCC2[merged$PRMJOCC2 == "8"] <- "Installation, maintenance"
+merged$PRMJOCC2[merged$PRMJOCC2 == "9"] <- "Production"
+merged$PRMJOCC2[merged$PRMJOCC2 == "10"] <- "Transportation"
+merged$PRMJOCC2[merged$PRMJOCC2 == "11"] <- "Armed Forces"
+
+
+lale <- merged[ which(merged$TEAGE >= 16 & merged$TEAGE <= 64), ] 
+
+lale$second <- NA                              ## Second job into binary variable
+lale$second[lale$PEMJOT == -1] <- NA
+lale$second[lale$PEMJOT == 1]  <- 1
+lale$second[lale$PEMJOT == 2]  <- 0
+
+lale$numsec <- NA                              ## Number of other jobs held (2-4)
+lale$numsec[lale$PEMJNUM == -1] <- NA 
+lale$numsec[lale$PEMJNUM == 2] <- 2 
+lale$numsec[lale$PEMJNUM == 3] <- 3 
+lale$numsec[lale$PEMJNUM == 4] <- 4 
+
+## TUMONTH should be month variable (matched with "second job" question)
+
+```
+
+
+\newpage
+## Lale
+
+>[In 2013, 6.8 million workers in the United States held more than one job. Twenty years before, the figure was 7.5 million, although the total number of workers with a job was lower by 15.9 million. The multiple-jobholding rate-the proportion of multiple jobholders among all employed workers-rose from 6.2 percent in 1994 to a high of 6.8 percent during the summer of 1995. It has declined steadily since then and was at 5.0 percent by the end of 2013. Inspection of data from the Current Population Survey (CPS, see accompanying box) reveals that the downward trend holds across various sociodemographic groups of the working-age population (those 16 to 64 years old).](https://www.bls.gov/opub/mlr/2015/article/multiple-jobholding-over-the-past-two-decades.htm)
+
+```{r Figure1, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10,fig.height=5,fig.cap="Lale Figure 1."}
+
+
+toplot <- lale %>% 
+  group_by(year_short) %>% 
+  summarise(average = mean(second, na.rm=TRUE))
+
+toplot$YEAR <- as.numeric(as.character(toplot$year_short))
+
+ggplot(data = toplot) +
+  geom_line(data=subset(toplot, !is.na(average)), mapping = aes(x = YEAR, y = average)) +   
+  labs(caption = "Note: Shaded areas represent recessions, as determined by the National Bureau of Economic Research.\nSource: U.S. Beureau of Labor Statistics", x = "Year", y = "Percent Holding Second Job") +  
+  theme_classic() + 
+  geom_hline(yintercept=.06, linetype="dashed") +
+  annotate("rect", xmin = 2008, xmax = 2009, ymin = 0, ymax = .08, alpha = .2)  
+
+
+```
+
+```{r regression, echo=FALSE, warning=FALSE, message=FALSE, include=FALSE}
+
+mod <- lm(average~YEAR,data=toplot)
+summary(mod)
+
+```
+
+General linear downward effect has continued, $R^2$ = `r summary(lm(average~YEAR,data=toplot))$r.squared`. If we just focus on last few years, has this percentage of second job holders leveled off? (not sure best way analytically to test for this - polynomial? [8/3/19])
+
+> Note. Tried the 3-month floating average ("moving average.R") but plot is extremely ragged (8/3/19)
+
+```{r Figure2a, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10,fig.height=5,fig.cap="Lale Figure 2a."}
+
+lale$gender <- NA                              ## Second job into binary variable
+lale$gender[lale$PESEX == 1] <- "Men"
+lale$gender[lale$PESEX == 2]  <- "Women"
+
+lale$second <- as.numeric(as.character(lale$second))
+
+toplot3 <- lale %>%                            
+  group_by(gender, year_short) %>% 
+  summarise(average = mean(second, na.rm=TRUE))
+
+toplot3$YEAR <- as.numeric(as.character(toplot3$year_short))
+
+
+ggplot(data = toplot3) +
+  geom_line(data=subset(toplot3, !is.na(gender)), mapping = aes(x = YEAR, y = average, color= gender)) +   
+  labs(caption = "Note: Shaded areas represent recessions, as determined by the National Bureau of Economic Research.\nSource: U.S. Beureau of Labor Statistics", x = "Year", y = "Percent Holding Second Job") +  
+  guides(color=guide_legend(title="Gender")) + 
+  theme_classic() + 
+  geom_hline(yintercept=.06, linetype="dashed") +
+  annotate("rect", xmin = 2008, xmax = 2009, ymin = 0, ymax = .08, alpha = .2)  
+
+```
+
+This is very ragged without geom_smooth
+
+```{r NewFig, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10,fig.height=5,fig.cap="Smoothing across 3-month rolling average"}
+
+## Trying 3-month centered average (without seasonal adjustment)
+
+# freq(lale$HRMONTH)
+# freq(lale$Year)         ## both numbers (integer and number)
+# table(lale$HRMONTH,lale$Year)
+## subset based on rolling averages:
+
+lale$avg_yr <- NULL
+
+lale$avg_yr[lale$Year == 2003 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 1
+lale$avg_yr[lale$Year == 2003 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 2
+lale$avg_yr[lale$Year == 2003 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 3
+lale$avg_yr[lale$Year == 2003 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 4
+lale$avg_yr[lale$Year == 2003 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 5
+lale$avg_yr[lale$Year == 2003 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 6
+lale$avg_yr[lale$Year == 2003 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 7
+lale$avg_yr[lale$Year == 2003 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 8
+lale$avg_yr[lale$Year == 2003 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 9
+lale$avg_yr[lale$Year == 2003 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 10
+lale$avg_yr[lale$Year == 2003 & lale$HRMONTH >= 11]                       <- 11
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH == 1]                        <- 11
+lale$avg_yr[lale$Year == 2003 & lale$HRMONTH == 12]                       <- 12
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH <= 2]                        <- 12
+
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 13
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 14
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 15
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 16
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 17
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 18
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 19
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 20
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 21
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 22
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH >= 11]                       <- 23
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH == 1]                        <- 23
+lale$avg_yr[lale$Year == 2004 & lale$HRMONTH == 12]                       <- 24
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH <= 2]                        <- 24
+
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 25
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 26
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 27
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 28
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 29
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 30
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 31
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 32
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 33
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 34
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH >= 11]                       <- 35
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH == 1]                        <- 35
+lale$avg_yr[lale$Year == 2005 & lale$HRMONTH == 12]                       <- 36
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH <= 2]                        <- 36
+
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 37
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 38
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 39
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 40
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 41
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 42
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 43
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 44
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 45
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 46
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH >= 11]                       <- 47
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH == 1]                        <- 47
+lale$avg_yr[lale$Year == 2006 & lale$HRMONTH == 12]                       <- 48
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH <= 2]                        <- 48
+
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 49
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 50
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 51
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 52
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 53
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 54
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 55
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 56
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 57
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 58
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH >= 11]                       <- 59
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH == 1]                        <- 59
+lale$avg_yr[lale$Year == 2007 & lale$HRMONTH == 12]                       <- 60
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH <= 2]                        <- 60
+
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 61
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 62
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 63
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 64
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 65
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 66
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 67
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 68
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 69
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 70
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH >= 11]                       <- 71
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH == 1]                        <- 71
+lale$avg_yr[lale$Year == 2008 & lale$HRMONTH == 12]                       <- 72
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH <= 2]                        <- 72
+
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 73
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 74
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 75
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 76
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 77
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 78
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 79
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 80
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 81
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 82
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH >= 11]                       <- 83
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH == 1]                        <- 83
+lale$avg_yr[lale$Year == 2009 & lale$HRMONTH == 12]                       <- 84
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH <= 2]                        <- 84
+
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 85
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 86
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 87
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 88
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 89
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 90
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 91
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 92
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 93
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 94
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH >= 11]                       <- 95
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH == 1]                        <- 95
+lale$avg_yr[lale$Year == 2010 & lale$HRMONTH == 12]                       <- 96
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH <= 2]                        <- 96
+
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 97
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 98
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 99
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 100
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 101
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 102
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 103
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 104
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 105
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 106
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH >= 11]                       <- 107
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH == 1]                        <- 107
+lale$avg_yr[lale$Year == 2011 & lale$HRMONTH == 12]                       <- 108
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH <= 2]                        <- 108
+
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 109
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 110
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 111
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 112
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 113
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 114
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 115
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 116
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 117
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 118
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH >= 11]                       <- 119
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH == 1]                        <- 119
+lale$avg_yr[lale$Year == 2012 & lale$HRMONTH == 12]                       <- 120
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH <= 2]                        <- 120
+
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 121
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 122
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 123
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 124
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 125
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 126
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 127
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 128
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 129
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 130
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH >= 11]                       <- 131
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH == 1]                        <- 131
+lale$avg_yr[lale$Year == 2013 & lale$HRMONTH == 12]                       <- 132
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH <= 2]                        <- 132
+
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 133
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 134
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 135
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 136
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 137
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 138
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 139
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 140
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 141
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 142
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH >= 11]                       <- 143
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH == 1]                        <- 143
+lale$avg_yr[lale$Year == 2014 & lale$HRMONTH == 12]                       <- 144
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH <= 2]                        <- 144
+
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 145
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 146
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 147
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 148
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 149
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 150
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 151
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 152
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 153
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 154
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH >= 11]                       <- 155
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH == 1]                        <- 155
+lale$avg_yr[lale$Year == 2015 & lale$HRMONTH == 12]                       <- 156
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH <= 2]                        <- 156
+
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 157
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 158
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 159
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 160
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 161
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 162
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 163
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 164
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 165
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 166
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH >= 11]                       <- 167
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH == 1]                        <- 167
+lale$avg_yr[lale$Year == 2016 & lale$HRMONTH == 12]                       <- 168
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH <= 2]                        <- 168
+
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 169
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 170
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 171
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 172
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 173
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 174
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 175
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 176
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 177
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH >= 10 & lale$HRMONTH <= 12]  <- 178
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH >= 11]                       <- 179
+lale$avg_yr[lale$Year == 2018 & lale$HRMONTH == 1]                        <- 179
+lale$avg_yr[lale$Year == 2017 & lale$HRMONTH == 12]                       <- 180
+lale$avg_yr[lale$Year == 2018 & lale$HRMONTH <= 2]                        <- 180
+
+lale$avg_yr[lale$Year == 2018 & lale$HRMONTH >= 1 & lale$HRMONTH <= 3]    <- 181
+lale$avg_yr[lale$Year == 2018 & lale$HRMONTH >= 2 & lale$HRMONTH <= 4]    <- 182
+lale$avg_yr[lale$Year == 2018 & lale$HRMONTH >= 3 & lale$HRMONTH <= 5]    <- 183
+lale$avg_yr[lale$Year == 2018 & lale$HRMONTH >= 4 & lale$HRMONTH <= 6]    <- 184
+lale$avg_yr[lale$Year == 2018 & lale$HRMONTH >= 5 & lale$HRMONTH <= 7]    <- 185
+lale$avg_yr[lale$Year == 2018 & lale$HRMONTH >= 6 & lale$HRMONTH <= 8]    <- 186
+lale$avg_yr[lale$Year == 2018 & lale$HRMONTH >= 7 & lale$HRMONTH <= 9]    <- 187
+lale$avg_yr[lale$Year == 2018 & lale$HRMONTH >= 8 & lale$HRMONTH <= 10]   <- 188
+lale$avg_yr[lale$Year == 2018 & lale$HRMONTH >= 9 & lale$HRMONTH <= 11]   <- 189  
+lale$avg_yr[lale$Year == 2018 & lale$HRMONTH >= 10]  <- 190                   
+
+lale$avg_yr[lale$avg_yr == 190]    <- NA        ## something weird happening with final categories in recodes
+
+lale$avg_yr[lale$avg_yr == 1]    <- 2003.083 
+lale$avg_yr[lale$avg_yr == 2]    <- 2003.17
+lale$avg_yr[lale$avg_yr == 3]    <- 2003.25
+lale$avg_yr[lale$avg_yr == 4]    <- 2003.33
+lale$avg_yr[lale$avg_yr == 5]    <- 2003.42
+lale$avg_yr[lale$avg_yr == 6]    <- 2003.5
+lale$avg_yr[lale$avg_yr == 7]    <- 2003.58
+lale$avg_yr[lale$avg_yr == 8]    <- 2003.67
+lale$avg_yr[lale$avg_yr == 9]    <- 2003.75
+lale$avg_yr[lale$avg_yr == 10]   <- 2003.83
+lale$avg_yr[lale$avg_yr == 11]   <- 2003.92 
+lale$avg_yr[lale$avg_yr == 12]   <- 2003.99
+
+lale$avg_yr[lale$avg_yr == 13]    <- 2004.083 
+lale$avg_yr[lale$avg_yr == 14]    <- 2004.17
+lale$avg_yr[lale$avg_yr == 15]    <- 2004.25
+lale$avg_yr[lale$avg_yr == 16]    <- 2004.33
+lale$avg_yr[lale$avg_yr == 17]    <- 2004.42
+lale$avg_yr[lale$avg_yr == 18]    <- 2004.5
+lale$avg_yr[lale$avg_yr == 19]    <- 2004.58
+lale$avg_yr[lale$avg_yr == 20]    <- 2004.67
+lale$avg_yr[lale$avg_yr == 21]    <- 2004.75
+lale$avg_yr[lale$avg_yr == 22]   <- 2004.83
+lale$avg_yr[lale$avg_yr == 23]   <- 2004.92 
+lale$avg_yr[lale$avg_yr == 24]   <- 2004.99
+
+lale$avg_yr[lale$avg_yr == 25]    <- 2005.083 
+lale$avg_yr[lale$avg_yr == 26]    <- 2005.17
+lale$avg_yr[lale$avg_yr == 27]    <- 2005.25
+lale$avg_yr[lale$avg_yr == 28]    <- 2005.33
+lale$avg_yr[lale$avg_yr == 29]    <- 2005.42
+lale$avg_yr[lale$avg_yr == 30]    <- 2005.5
+lale$avg_yr[lale$avg_yr == 31]    <- 2005.58
+lale$avg_yr[lale$avg_yr == 32]    <- 2005.67
+lale$avg_yr[lale$avg_yr == 33]    <- 2005.75
+lale$avg_yr[lale$avg_yr == 34]   <- 2005.83
+lale$avg_yr[lale$avg_yr == 35]   <- 2005.92 
+lale$avg_yr[lale$avg_yr == 36]   <- 2005.99
+
+lale$avg_yr[lale$avg_yr == 37]    <- 2006.083 
+lale$avg_yr[lale$avg_yr == 38]    <- 2006.17
+lale$avg_yr[lale$avg_yr == 39]    <- 2006.25
+lale$avg_yr[lale$avg_yr == 40]    <- 2006.33
+lale$avg_yr[lale$avg_yr == 41]    <- 2006.42
+lale$avg_yr[lale$avg_yr == 42]    <- 2006.5
+lale$avg_yr[lale$avg_yr == 43]    <- 2006.58
+lale$avg_yr[lale$avg_yr == 44]    <- 2006.67
+lale$avg_yr[lale$avg_yr == 45]    <- 2006.75
+lale$avg_yr[lale$avg_yr == 46]   <- 2006.83
+lale$avg_yr[lale$avg_yr == 47]   <- 2006.92 
+lale$avg_yr[lale$avg_yr == 48]   <- 2006.99
+
+lale$avg_yr[lale$avg_yr == 49]    <- 2007.083 
+lale$avg_yr[lale$avg_yr == 50]    <- 2007.17
+lale$avg_yr[lale$avg_yr == 51]    <- 2007.25
+lale$avg_yr[lale$avg_yr == 52]    <- 2007.33
+lale$avg_yr[lale$avg_yr == 53]    <- 2007.42
+lale$avg_yr[lale$avg_yr == 54]    <- 2007.5
+lale$avg_yr[lale$avg_yr == 55]    <- 2007.58
+lale$avg_yr[lale$avg_yr == 56]    <- 2007.67
+lale$avg_yr[lale$avg_yr == 57]    <- 2007.75
+lale$avg_yr[lale$avg_yr == 58]   <- 2007.83
+lale$avg_yr[lale$avg_yr == 59]   <- 2007.92 
+lale$avg_yr[lale$avg_yr == 60]   <- 2007.99
+
+lale$avg_yr[lale$avg_yr == 61]    <- 2008.083 
+lale$avg_yr[lale$avg_yr == 62]    <- 2008.17
+lale$avg_yr[lale$avg_yr == 63]    <- 2008.25
+lale$avg_yr[lale$avg_yr == 64]    <- 2008.33
+lale$avg_yr[lale$avg_yr == 65]    <- 2008.42
+lale$avg_yr[lale$avg_yr == 66]    <- 2008.5
+lale$avg_yr[lale$avg_yr == 67]    <- 2008.58
+lale$avg_yr[lale$avg_yr == 68]    <- 2008.67
+lale$avg_yr[lale$avg_yr == 69]    <- 2008.75
+lale$avg_yr[lale$avg_yr == 70]   <- 2008.83
+lale$avg_yr[lale$avg_yr == 71]   <- 2008.92 
+lale$avg_yr[lale$avg_yr == 72]   <- 2008.99
+
+lale$avg_yr[lale$avg_yr == 73]    <- 2009.083 
+lale$avg_yr[lale$avg_yr == 74]    <- 2009.17
+lale$avg_yr[lale$avg_yr == 75]    <- 2009.25
+lale$avg_yr[lale$avg_yr == 76]    <- 2009.33
+lale$avg_yr[lale$avg_yr == 77]    <- 2009.42
+lale$avg_yr[lale$avg_yr == 78]    <- 2009.5
+lale$avg_yr[lale$avg_yr == 79]    <- 2009.58
+lale$avg_yr[lale$avg_yr == 80]    <- 2009.67
+lale$avg_yr[lale$avg_yr == 81]    <- 2009.75
+lale$avg_yr[lale$avg_yr == 82]   <- 2009.83
+lale$avg_yr[lale$avg_yr == 83]   <- 2009.92 
+lale$avg_yr[lale$avg_yr == 84]   <- 2009.99
+
+lale$avg_yr[lale$avg_yr == 85]    <- 2010.083 
+lale$avg_yr[lale$avg_yr == 86]    <- 2010.17
+lale$avg_yr[lale$avg_yr == 87]    <- 2010.25
+lale$avg_yr[lale$avg_yr == 88]    <- 2010.33
+lale$avg_yr[lale$avg_yr == 89]    <- 2010.42
+lale$avg_yr[lale$avg_yr == 90]    <- 2010.5
+lale$avg_yr[lale$avg_yr == 91]    <- 2010.58
+lale$avg_yr[lale$avg_yr == 92]    <- 2010.67
+lale$avg_yr[lale$avg_yr == 93]    <- 2010.75
+lale$avg_yr[lale$avg_yr == 94]   <- 2010.83
+lale$avg_yr[lale$avg_yr == 95]   <- 2010.92 
+lale$avg_yr[lale$avg_yr == 96]   <- 2010.99
+
+lale$avg_yr[lale$avg_yr == 97]    <- 2011.083 
+lale$avg_yr[lale$avg_yr == 98]    <- 2011.17
+lale$avg_yr[lale$avg_yr == 99]    <- 2011.25
+lale$avg_yr[lale$avg_yr == 100]    <- 2011.33
+lale$avg_yr[lale$avg_yr == 101]    <- 2011.42
+lale$avg_yr[lale$avg_yr == 102]    <- 2011.5
+lale$avg_yr[lale$avg_yr == 103]    <- 2011.58
+lale$avg_yr[lale$avg_yr == 104]    <- 2011.67
+lale$avg_yr[lale$avg_yr == 105]    <- 2011.75
+lale$avg_yr[lale$avg_yr == 106]   <- 2011.83
+lale$avg_yr[lale$avg_yr == 107]   <- 2011.92 
+lale$avg_yr[lale$avg_yr == 108]   <- 2011.99
+
+lale$avg_yr[lale$avg_yr == 109]    <- 2012.083 
+lale$avg_yr[lale$avg_yr == 110]    <- 2012.17
+lale$avg_yr[lale$avg_yr == 111]    <- 2012.25
+lale$avg_yr[lale$avg_yr == 112]    <- 2012.33
+lale$avg_yr[lale$avg_yr == 113]    <- 2012.42
+lale$avg_yr[lale$avg_yr == 114]    <- 2012.5
+lale$avg_yr[lale$avg_yr == 115]    <- 2012.58
+lale$avg_yr[lale$avg_yr == 116]    <- 2012.67
+lale$avg_yr[lale$avg_yr == 117]    <- 2012.75
+lale$avg_yr[lale$avg_yr == 118]   <- 2012.83
+lale$avg_yr[lale$avg_yr == 119]   <- 2012.92 
+lale$avg_yr[lale$avg_yr == 120]   <- 2012.99
+
+lale$avg_yr[lale$avg_yr == 121]    <- 2013.083 
+lale$avg_yr[lale$avg_yr == 122]    <- 2013.17
+lale$avg_yr[lale$avg_yr == 123]    <- 2013.25
+lale$avg_yr[lale$avg_yr == 124]    <- 2013.33
+lale$avg_yr[lale$avg_yr == 125]    <- 2013.42
+lale$avg_yr[lale$avg_yr == 126]    <- 2013.5
+lale$avg_yr[lale$avg_yr == 127]    <- 2013.58
+lale$avg_yr[lale$avg_yr == 128]    <- 2013.67
+lale$avg_yr[lale$avg_yr == 129]    <- 2013.75
+lale$avg_yr[lale$avg_yr == 130]   <- 2013.83
+lale$avg_yr[lale$avg_yr == 131]   <- 2013.92 
+lale$avg_yr[lale$avg_yr == 132]   <- 2013.99
+
+lale$avg_yr[lale$avg_yr == 133]    <- 2014.083 
+lale$avg_yr[lale$avg_yr == 134]    <- 2014.17
+lale$avg_yr[lale$avg_yr == 135]    <- 2014.25
+lale$avg_yr[lale$avg_yr == 136]    <- 2014.33
+lale$avg_yr[lale$avg_yr == 137]    <- 2014.42
+lale$avg_yr[lale$avg_yr == 138]    <- 2014.5
+lale$avg_yr[lale$avg_yr == 139]    <- 2014.58
+lale$avg_yr[lale$avg_yr == 140]    <- 2014.67
+lale$avg_yr[lale$avg_yr == 141]    <- 2014.75
+lale$avg_yr[lale$avg_yr == 142]   <- 2014.83
+lale$avg_yr[lale$avg_yr == 143]   <- 2014.92 
+lale$avg_yr[lale$avg_yr == 144]   <- 2014.99
+
+lale$avg_yr[lale$avg_yr == 145]    <- 2015.083 
+lale$avg_yr[lale$avg_yr == 146]    <- 2015.17
+lale$avg_yr[lale$avg_yr == 147]    <- 2015.25
+lale$avg_yr[lale$avg_yr == 148]    <- 2015.33
+lale$avg_yr[lale$avg_yr == 149]    <- 2015.42
+lale$avg_yr[lale$avg_yr == 150]    <- 2015.5
+lale$avg_yr[lale$avg_yr == 151]    <- 2015.58
+lale$avg_yr[lale$avg_yr == 152]    <- 2015.67
+lale$avg_yr[lale$avg_yr == 153]    <- 2015.75
+lale$avg_yr[lale$avg_yr == 154]   <- 2015.83
+lale$avg_yr[lale$avg_yr == 155]   <- 2015.92 
+lale$avg_yr[lale$avg_yr == 156]   <- 2015.99
+
+lale$avg_yr[lale$avg_yr == 157]    <- 2016.083 
+lale$avg_yr[lale$avg_yr == 158]    <- 2016.17
+lale$avg_yr[lale$avg_yr == 159]    <- 2016.25
+lale$avg_yr[lale$avg_yr == 160]    <- 2016.33
+lale$avg_yr[lale$avg_yr == 161]    <- 2016.42
+lale$avg_yr[lale$avg_yr == 162]    <- 2016.5
+lale$avg_yr[lale$avg_yr == 163]    <- 2016.58
+lale$avg_yr[lale$avg_yr == 164]    <- 2016.67
+lale$avg_yr[lale$avg_yr == 165]    <- 2016.75
+lale$avg_yr[lale$avg_yr == 166]   <- 2016.83
+lale$avg_yr[lale$avg_yr == 167]   <- 2016.92 
+lale$avg_yr[lale$avg_yr == 168]   <- 2016.99
+
+lale$avg_yr[lale$avg_yr == 169]    <- 2017.083 
+lale$avg_yr[lale$avg_yr == 170]    <- 2017.17
+lale$avg_yr[lale$avg_yr == 171]    <- 2017.25
+lale$avg_yr[lale$avg_yr == 172]    <- 2017.33
+lale$avg_yr[lale$avg_yr == 173]    <- 2017.42
+lale$avg_yr[lale$avg_yr == 174]    <- 2017.5
+lale$avg_yr[lale$avg_yr == 175]    <- 2017.58
+lale$avg_yr[lale$avg_yr == 176]    <- 2017.67
+lale$avg_yr[lale$avg_yr == 177]    <- 2017.75
+lale$avg_yr[lale$avg_yr == 178]   <- 2017.83
+lale$avg_yr[lale$avg_yr == 179]   <- 2017.92 
+lale$avg_yr[lale$avg_yr == 180]   <- 2017.99
+
+lale$avg_yr[lale$avg_yr == 181]    <- 2018.083 
+lale$avg_yr[lale$avg_yr == 182]    <- 2018.17
+lale$avg_yr[lale$avg_yr == 183]    <- 2018.25
+lale$avg_yr[lale$avg_yr == 184]    <- 2018.33
+lale$avg_yr[lale$avg_yr == 185]    <- 2018.42
+lale$avg_yr[lale$avg_yr == 186]    <- 2018.5
+lale$avg_yr[lale$avg_yr == 187]    <- 2018.58
+lale$avg_yr[lale$avg_yr == 188]    <- 2018.67
+lale$avg_yr[lale$avg_yr == 189]    <- 2018.75
+
+# freq(lale$avg_yr)     ## Is this the seasonal adjustment? (cyclical peaks)
+a<-table(lale$year_short,lale$avg_yr)
+write.table(a,"table.csv")
+
+
+
+lale$gender <- NA                              ## Second job into binary variable
+lale$gender[lale$PESEX == 1] <- "Men"
+lale$gender[lale$PESEX == 2]  <- "Women"
+
+lale$second <- as.numeric(as.character(lale$second))
+
+lale$avg_yr <- as.character(lale$avg_yr)
+
+toplot4 <- lale %>%                            
+  group_by(gender, avg_yr) %>% 
+  summarise(average = mean(second, na.rm=TRUE))
+
+toplot4$YEAR <- as.numeric(as.character(toplot4$avg_yr))
+
+
+ggplot(data = toplot4) +
+  geom_smooth(data=subset(toplot4, !is.na(gender)), mapping = aes(x = YEAR, y = average, color= gender), se=FALSE) +   
+  labs(caption = "Note: Shaded areas represent recessions, as determined by the National Bureau of Economic Research.\nSource: U.S. Beureau of Labor Statistics", x = "Year", y = "Percent Holding Second Job") +  
+  guides(color=guide_legend(title="Gender")) + 
+  theme_classic() + 
+  geom_hline(yintercept=.06, linetype="dashed") +
+  annotate("rect", xmin = 2008, xmax = 2009, ymin = 0, ymax = .08, alpha = .2) 
+
+```
+
+```{r Figure2c, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10,fig.height=5,fig.cap="Lale Figure 2C."}
+
+lale$educ <- as.factor(as.numeric(lale$PEEDUCA.y))
+
+lale$educ3[lale$educ == "31"] <- "Less than high school"
+lale$educ3[lale$educ == "32"] <- "Less than high school"
+lale$educ3[lale$educ == "33"] <- "Less than high school"
+lale$educ3[lale$educ == "34"] <- "Less than high school"
+lale$educ3[lale$educ == "35"] <- "Less than high school"
+lale$educ3[lale$educ == "36"] <- "Less than high school"
+lale$educ3[lale$educ == "37"] <- "Less than high school"
+lale$educ3[lale$educ == "38"] <- "Less than high school"
+lale$educ3[lale$educ == "39"] <- "High school graduate"
+lale$educ3[lale$educ == "40"] <- "Some college"
+lale$educ3[lale$educ == "41"] <- "Some college"
+lale$educ3[lale$educ == "42"] <- "Some college"
+lale$educ3[lale$educ == "43"] <- "College or higher education"
+lale$educ3[lale$educ == "44"] <- "College or higher education"
+lale$educ3[lale$educ == "45"] <- "College or higher education"
+lale$educ3[lale$educ == "46"] <- "College or higher education"
+
+toplot2 <- lale %>% 
+  group_by(year_short,educ3) %>% 
+  summarise(average = mean(second, na.rm=TRUE))
+
+toplot2$YEAR <- as.numeric(as.character(toplot2$year_short))
+
+ggplot(data = toplot2) +
+  geom_line(data=subset(toplot2, !is.na(educ3)), mapping = aes(x = YEAR, y = average, color= educ3)) +   
+  scale_color_discrete(limits=c("Less than high school", "High school graduate", "Some college", "College or higher education")) +
+  labs(caption = "Note: Shaded areas represent recessions, as determined by the National Bureau of Economic Research.\nSource: U.S. Beureau of Labor Statistics", x = "Year", y = "Percent Holding Second Job") +  
+  guides(color=guide_legend(title="Education")) + 
+  theme_classic() + 
+  geom_hline(yintercept=.06, linetype="dashed") +
+  annotate("rect", xmin = 2008, xmax = 2009, ymin = 0, ymax = .08, alpha = .2)  
+
+write.csv(toplot2, "play.csv")
+
+## "3 month centered" average - need month data
+
+```
+
+```{r F.x, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10,fig.height=5,fig.cap="Education with 3-month moving average estimate."}
+
+lale$educ <- as.factor(as.numeric(lale$PEEDUCA.y))
+
+lale$educ3[lale$educ == "31"] <- "Less than high school"
+lale$educ3[lale$educ == "32"] <- "Less than high school"
+lale$educ3[lale$educ == "33"] <- "Less than high school"
+lale$educ3[lale$educ == "34"] <- "Less than high school"
+lale$educ3[lale$educ == "35"] <- "Less than high school"
+lale$educ3[lale$educ == "36"] <- "Less than high school"
+lale$educ3[lale$educ == "37"] <- "Less than high school"
+lale$educ3[lale$educ == "38"] <- "Less than high school"
+lale$educ3[lale$educ == "39"] <- "High school graduate"
+lale$educ3[lale$educ == "40"] <- "Some college"
+lale$educ3[lale$educ == "41"] <- "Some college"
+lale$educ3[lale$educ == "42"] <- "Some college"
+lale$educ3[lale$educ == "43"] <- "College or higher education"
+lale$educ3[lale$educ == "44"] <- "College or higher education"
+lale$educ3[lale$educ == "45"] <- "College or higher education"
+lale$educ3[lale$educ == "46"] <- "College or higher education"
+
+toplot5 <- lale %>%                            
+  group_by(educ3, avg_yr) %>% 
+  summarise(average = mean(second, na.rm=TRUE))
+
+toplot5$YEAR <- as.numeric(as.character(toplot5$avg_yr))
+
+ggplot(data = toplot5) +
+  geom_smooth(data=subset(toplot5, !is.na(educ3)), mapping = aes(x = YEAR, y = average, color= educ3), se=FALSE) +   
+  scale_color_discrete(limits=c("Less than high school", "High school graduate", "Some college", "College or higher education")) +
+  labs(caption = "Note: Shaded areas represent recessions, as determined by the National Bureau of Economic Research.\nSource: U.S. Beureau of Labor Statistics", x = "Year", y = "Percent Holding Second Job") +  
+  guides(color=guide_legend(title="Education")) + 
+  theme_classic() + 
+  geom_hline(yintercept=.06, linetype="dashed") +
+  annotate("rect", xmin = 2008, xmax = 2009, ymin = 0, ymax = .08, alpha = .2)  
+
+```
+
+```{r 2b, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10,fig.height=5,fig.cap="Age with 3-month moving average estimate."}
+
+lale$age <- NULL
+
+lale$age[lale$TEAGE <= 24] <- "16 to 24 years"
+lale$age[lale$TEAGE > 24 & lale$TEAGE <= 54] <- "25 to 54 years"
+lale$age[lale$TEAGE > 54] <- "55 to 64 years"
+
+toplot6 <- lale %>%                            
+  group_by(age, avg_yr) %>% 
+  summarise(average = mean(second, na.rm=TRUE))
+
+toplot6$YEAR <- as.numeric(as.character(toplot6$avg_yr))
+
+ggplot(data = toplot6) +
+  geom_smooth(data=subset(toplot6, !is.na(age)), mapping = aes(x = YEAR, y = average, color= age), se=FALSE) +   
+  scale_color_discrete(limits=c("16 to 24 years", "25 to 54 years", "55 to 64 years")) +
+  labs(caption = "Note: Shaded areas represent recessions, as determined by the National Bureau of Economic Research.\nSource: U.S. Beureau of Labor Statistics", x = "Year", y = "Percent Holding Second Job") +  
+  guides(color=guide_legend(title="Age")) + 
+  theme_classic() + 
+  geom_hline(yintercept=.06, linetype="dashed") +
+  annotate("rect", xmin = 2008, xmax = 2009, ymin = 0, ymax = .08, alpha = .2)  
+
+```
+
+```{r 2d, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10,fig.height=5,fig.cap="Marital status with 3-month moving average estimate."}
+
+lale$marry <- NULL
+
+lale$marry[lale$PEMARITL <= 2] <- "Married"
+lale$marry[lale$PEMARITL > 2 & lale$PEMARITL <= 5] <- "Widowed, divorced, or separated"
+lale$marry[lale$PEMARITL == 6] <- "Single"
+
+toplot7 <- lale %>%                            
+  group_by(marry, avg_yr) %>% 
+  summarise(average = mean(second, na.rm=TRUE))
+
+toplot7$YEAR <- as.numeric(as.character(toplot7$avg_yr))
+
+ggplot(data = toplot7) +
+  geom_smooth(data=subset(toplot7, !is.na(marry)), mapping = aes(x = YEAR, y = average, color= marry), se=FALSE) +   
+  labs(caption = "Note: Shaded areas represent recessions, as determined by the National Bureau of Economic Research.\nSource: U.S. Beureau of Labor Statistics", x = "Year", y = "Percent Holding Second Job") +  
+  guides(color=guide_legend(title="Marital Status")) + 
+  theme_classic() + 
+  geom_hline(yintercept=.06, linetype="dashed") +
+  annotate("rect", xmin = 2008, xmax = 2009, ymin = 0, ymax = .08, alpha = .2)  
+
+```
+
+*NOTE.* Subsetting to only 2010 $\rightarrow$ results in rMarkdown errors - will have to copy chunks separately for @lale_multiple_2015 graph continuation...
+
+Recession data was taken from the [National Bureau of Economic Research](https://www.nber.org/cycles/sept2010.html), which identified an 18-month United States recession lasting from December 2007 to June 2009. The categories of "Pre-recession", "During", and "Post-recession" are defined by this 18 month window.
+
+```{r Recession, echo=FALSE, warning=FALSE, message=FALSE, fig.width=10,fig.height=5,fig.cap="Percentage second job holders per occupational category."}
+
+## Recession recodes here (different from currently in "replicating lale.Rmd" [8/13/19])
+
+lale$recess <- NA
+
+lale$recess[lale$Year <= 2006]                                            <- "Pre Recession"
+lale$recess[lale$Year == 2007 & lale$HRMONTH <= 11]                       <- "Pre Recession"
+
+lale$recess[lale$Year == 2007 & lale$HRMONTH == 12]                       <- "During Recession"
+lale$recess[lale$Year == 2008]                                            <- "During Recession"
+lale$recess[lale$Year == 2009 & lale$HRMONTH <= 6]                        <- "During Recession"
+
+lale$recess[lale$Year == 2009 & lale$HRMONTH >= 7]                        <- "Post Recession"
+lale$recess[lale$Year >= 2010]                                            <- "Post Recession"
+
+lale$recess2 <- factor(lale$recess, c("Pre Recession", "During Recession", "Post Recession"))
+
+#ggplot(data=subset(lale, !is.na(PRMJOCC2)), aes(PRMJOCC2)) + geom_histogram(stat="count") + 
+#  facet_grid(. ~ recess2) + coord_flip()
+
+
+#ggplot(data=subset(lale, !is.na(PRMJOCC2)), aes(x=reorder(PRMJOCC2,PRMJOCC2, function(x)-length(x)))) +  
+#  geom_bar(aes(y = (..count..)/sum(..count..))) 
+
+
+ggplot(data=subset(lale, !is.na(PRMJOCC2)), aes(x=reorder(PRMJOCC2,PRMJOCC2, function(x)-length(x)),  group=recess2)) + 
+  geom_bar(aes(y = ..prop.., fill = factor(..x..)), stat="count") +
+  geom_text(aes( label = scales::percent(..prop..),
+                 y= ..prop.. ), stat= "count") +
+  labs(x = "", y = "Percent", fill="Occupation") +
+  facet_grid(~recess2) +
+  scale_y_continuous(labels = scales::percent) + 
+  theme(legend.position = "none") + 
+  coord_flip()
+
+pre <- lale[ which(lale$recess2=="Pre Recession"), ]
+during <- lale[ which(lale$recess2=="During Recession"), ]
+post <- lale[ which(lale$recess2=="Post Recession"), ]
+
+f.pre <- freq(pre$second, plot = FALSE)
+f.dur <- freq(during$second, plot = FALSE)
+f.pos <- freq(post$second, plot = FALSE)
+
+```
+
+Overall percentages of second job-holders was seemingly not affected by the recession, with percentages being `r round(f.pre[2,3],2)`% Pre-recession, `r round(f.dur[2,3],2)`% During recession, and `r round(f.pos[2,3],2)`% Post-recession. 
+
+```{r hours.worked.recodes, echo=FALSE, warning=FALSE}
+
+## PEHRACT1 = "last week, how many hours did you actually work at your main job?"
+## PEHRACT2 = "last week, how many hours did you actually work at your other job(s)?"
+
+lale$job2 <- lale$PEHRACT2
+lale$job2[lale$PEHRACT2 <=  0] <- NA       ## Taking out zeros
+lale$job2[lale$PEHRACT2 >  70] <- NA
+
+
+lale$job2.1 <- lale$PEHRACT2
+lale$job2.1[lale$PEHRACT2 == -1] <- NA       ## Leaving in zeros
+lale$job2.1[lale$PEHRACT2 >  70] <- NA
+
+
+lale$job1 <- lale$PEHRACT1
+lale$job1[lale$PEHRACT1 == -1] <- NA       ## Leaving in zeros
+lale$job1[lale$PEHRACT1 >  90] <- NA
+
+lale$tot.hrs <- lale$job1 + lale$job2
+
+```
+
+Regarding hours worked per week, first job reported figures ranged from `r min(lale$job1, na.rm=TRUE)` to `r max(lale$PEHRACT1, na.rm=TRUE)`, while self-reported other job earnings (from all other jobs [than the primary]) ranged from `r min(lale$job2.1, na.rm=TRUE)` to `r max(lale$PEHRACT2, na.rm=TRUE)`. We adjusted for seemingly out-of-range values by truncating cases to caps of `r max(lale$job1, na.rm=TRUE)` for primary job and `r max(lale$job2, na.rm=TRUE)` for "other" jobs. Summing the two variables resulted in *total number of hours worked* the previous week (across all jobs) estimates ranging from `r min(lale$tot.hrs ,na.rm=TRUE)` to `r max(lale$tot.hrs, na.rm=TRUE)`. 
+
+\newpage
+#References
